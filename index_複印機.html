@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>copy_machine_simulator</title>
+
+  <!-- Bootstrap Icons + FontAwesome -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    /* =========================================================
+       基本防爆版設定
+       說明：避免輸入元件、按鈕或容器超出版面
+    ========================================================= */
+    * { box-sizing: border-box; }
+    input, select, textarea { max-width: 100%; }
+
+    /* =========================================================
+       版型主色
+       說明：延續超商複印機藍白黑介面，字型統一微軟正黑體
+    ========================================================= */
+    :root{
+      --machine:#171c24;
+      --machine2:#0c1118;
+      --screen-border:#1d2633;
+      --blue:#1fb7ff;
+      --blue2:#4ed2ff;
+      --deep-blue:#1f4ca3;
+      --line:#dbe3ed;
+      --text:#33485e;
+      --muted:#6d8198;
+      --panel:#ffffff;
+      --soft:#f8fbff;
+      --ok:#23b46d;
+      --danger:#d95a5a;
+      --shadow:0 20px 55px rgba(0,0,0,.28);
+    }
+
+    html, body{
+      margin:0;
+      padding:0;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.96) 0%, rgba(255,255,255,0) 25%),
+        linear-gradient(135deg, #f7f8fb 0%, #e9eef5 100%);
+      font-family:"Microsoft JhengHei","PingFang TC",sans-serif;
+      color:var(--text);
+    }
+
+    body{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+    }
+
+    /* =========================================================
+       機台外框
+    ========================================================= */
+    .machine{
+      width:min(980px, 100%);
+      background:linear-gradient(180deg, #252d39 0%, #101720 100%);
+      border-radius:30px;
+      padding:24px 24px 22px;
+      box-shadow:var(--shadow);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .machine::before{
+      content:"";
+      position:absolute;
+      inset:10px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.06);
+      pointer-events:none;
+    }
+
+    .top-slot{
+      width:180px;
+      height:78px;
+      margin:0 auto 16px auto;
+      background:linear-gradient(180deg, #10151c 0%, #2a313d 100%);
+      border-radius:0 0 16px 16px;
+      position:relative;
+      box-shadow:inset 0 8px 14px rgba(255,255,255,.04);
+    }
+
+    .top-slot::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:16px;
+      transform:translateX(-50%);
+      width:52px;
+      height:8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.15);
+    }
+
+    .screen-frame{
+      background:#0b1017;
+      border-radius:28px;
+      padding:16px;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.04);
+      position:relative;
+    }
+
+    .screen{
+      background:#fff;
+      border-radius:18px;
+      overflow:hidden;
+      min-height:720px;
+      border:4px solid #1e2733;
+      display:flex;
+      flex-direction:column;
+      position:relative;
+    }
+
+    /* =========================================================
+       上方藍色列
+       說明：第二頁左上改為複印選單，其餘頁面顯示返回
+    ========================================================= */
+    .topbar{
+      min-height:82px;
+      background:linear-gradient(90deg, var(--blue) 0%, var(--blue2) 100%);
+      display:grid;
+      grid-template-columns:160px 1fr 160px;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      color:#fff;
+      border-bottom:1px solid rgba(0,0,0,.08);
+    }
+
+    .page-title{
+      text-align:center;
+      font-size:2rem;
+      font-weight:900;
+      letter-spacing:2px;
+      text-shadow:0 2px 8px rgba(0,0,0,.12);
+    }
+
+    .nav-btn{
+      height:58px;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      background:rgba(255,255,255,.12);
+      color:#fff;
+      font-size:1.32rem;
+      font-weight:800;
+      font-family:inherit;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.22);
+      transition:.18s ease;
+    }
+
+    .nav-btn:hover{
+      background:rgba(255,255,255,.2);
+      transform:translateY(-1px);
+    }
+
+    .nav-btn:disabled{
+      opacity:.35;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    /* =========================================================
+       語言列
+    ========================================================= */
+    .lang-row{
+      display:flex;
+      border-bottom:1px solid var(--line);
+      background:#fff;
+    }
+
+    .lang-btn{
+      border:none;
+      background:#fff;
+      color:#44607d;
+      font-size:1.15rem;
+      font-family:inherit;
+      padding:14px 28px;
+      border-right:1px solid var(--line);
+      cursor:pointer;
+    }
+
+    .lang-btn.active{
+      background:var(--deep-blue);
+      color:#fff;
+      font-weight:800;
+    }
+
+    /* =========================================================
+       內容區
+    ========================================================= */
+    .content{
+      flex:1;
+      padding:24px 30px 28px;
+      background:#fff;
+      position:relative;
+    }
+
+    .page{
+      display:none;
+      min-height:560px;
+    }
+
+    .page.active{
+      display:block;
+      animation:fadeIn .22s ease;
+    }
+
+    @keyframes fadeIn{
+      from{opacity:0; transform:translateY(8px);}
+      to{opacity:1; transform:none;}
+    }
+
+    /* =========================================================
+       首頁
+    ========================================================= */
+    .home-page{
+      padding-top:6px;
+    }
+
+    .menu-grid{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:24px;
+      margin-top:20px;
+    }
+
+    .menu-card{
+      background:#fff;
+      border:2px solid #d6dfeb;
+      border-radius:4px;
+      min-height:265px;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:18px;
+      cursor:pointer;
+      transition:.18s ease;
+      color:#5267a4;
+      text-align:center;
+      box-shadow:0 8px 20px rgba(46,87,139,.06);
+      font-family:inherit;
+    }
+
+    .menu-card:hover{
+      border-color:#9fd6ff;
+      transform:translateY(-3px);
+    }
+
+    .menu-card i{
+      font-size:4.8rem;
+      color:#4d64a3;
+    }
+
+    .menu-card .label{
+      font-size:1.8rem;
+      font-weight:900;
+      line-height:1.25;
+      letter-spacing:1px;
+    }
+
+    /* =========================================================
+       第二頁：放置證件頁
+       說明：內頁不再放複印選單按鈕，改由上方藍色列控制
+    ========================================================= */
+    .place-layout{
+      min-height:560px;
+      position:relative;
+      background:#f4f4f4;
+      border:1px solid #d8e1eb;
+      padding:26px 28px 20px;
+    }
+
+    .place-center{
+      border:1px solid #cad6e3;
+      background:#f8f8f8;
+      min-height:470px;
+      position:relative;
+      padding:26px 28px 20px;
+    }
+
+    .place-page-title{
+      position:absolute;
+      right:34px;
+      top:20px;
+      font-size:2.1rem;
+      font-weight:900;
+      color:#4c6a88;
+      letter-spacing:1px;
+    }
+
+    .place-text-left{
+      position:absolute;
+      left:32px;
+      top:34px;
+      width:300px;
+      font-size:1.55rem;
+      line-height:1.95;
+      color:#4e6c89;
+      font-weight:800;
+    }
+
+    .scanner-group{
+      position:absolute;
+      left:50%;
+      top:53%;
+      transform:translate(-28%, -50%);
+      width:360px;
+      height:250px;
+    }
+
+    .turn-arrow{
+      position:absolute;
+      left:110px;
+      top:4px;
+      font-size:3.5rem;
+      color:#35aaff;
+      font-weight:900;
+      transform:rotate(-8deg);
+    }
+
+    .scanner-lid{
+      position:absolute;
+      left:98px;
+      top:20px;
+      width:205px;
+      height:90px;
+      background:linear-gradient(180deg, #f8fbff 0%, #dceaf8 100%);
+      border-radius:14px 14px 8px 8px;
+      transform:rotate(-8deg);
+      box-shadow:0 10px 16px rgba(0,0,0,.12);
+    }
+
+    .scanner-glass{
+      position:absolute;
+      left:48px;
+      top:124px;
+      width:280px;
+      height:100px;
+      border:2px solid #abd6ff;
+      border-radius:14px;
+      background:
+        linear-gradient(135deg, rgba(42,180,255,.15), rgba(42,180,255,.05)),
+        repeating-linear-gradient(135deg, rgba(255,255,255,.25) 0 12px, rgba(255,255,255,.08) 12px 24px);
+    }
+
+    .scanner-card{
+      position:absolute;
+      left:92px;
+      top:140px;
+      width:110px;
+      height:70px;
+      background:#fffef9;
+      border:2px solid #d7e1ed;
+      border-radius:8px;
+      box-shadow:0 8px 14px rgba(0,0,0,.08);
+    }
+
+    .scanner-card::before{
+      content:"";
+      position:absolute;
+      left:12px;
+      top:14px;
+      width:20px;
+      height:20px;
+      border-radius:50%;
+      background:#bccfe3;
+    }
+
+    .scanner-card::after{
+      content:"";
+      position:absolute;
+      right:12px;
+      top:14px;
+      width:42px;
+      height:28px;
+      background:
+        linear-gradient(#b9c8d8 0 0) top/100% 5px no-repeat,
+        linear-gradient(#b9c8d8 0 0) center/100% 5px no-repeat,
+        linear-gradient(#b9c8d8 0 0) bottom/65% 5px no-repeat;
+    }
+
+    .scanner-mark{
+      position:absolute;
+      left:206px;
+      top:160px;
+      font-size:2rem;
+      color:#2c92db;
+      font-weight:900;
+    }
+
+    .place-text-bottom{
+      position:absolute;
+      left:50%;
+      bottom:28px;
+      transform:translateX(-22%);
+      width:460px;
+      text-align:center;
+      font-size:1.35rem;
+      line-height:1.85;
+      color:#607790;
+      font-weight:800;
+    }
+
+    /* =========================================================
+       第三頁：複印模式頁
+    ========================================================= */
+    .section-label{
+      font-size:1.8rem;
+      font-weight:900;
+      color:#4d6987;
+      margin-bottom:18px;
+    }
+
+    .mode-wrap{
+      display:grid;
+      grid-template-columns:380px 1fr;
+      gap:28px;
+      align-items:start;
+      padding-top:10px;
+    }
+
+    .mode-list{
+      border:2px solid #d9e2ed;
+      background:#fff;
+    }
+
+    .mode-item{
+      min-height:92px;
+      display:flex;
+      align-items:center;
+      gap:16px;
+      padding:14px 18px;
+      border-bottom:1px solid #dfe7f0;
+      cursor:pointer;
+      color:#486384;
+      font-size:1.65rem;
+      font-weight:900;
+      transition:.15s ease;
+      font-family:inherit;
+      background:#fff;
+      width:100%;
+      text-align:left;
+      border-left:none;
+      border-right:none;
+      border-top:none;
+    }
+
+    .mode-item:last-child{ border-bottom:none; }
+
+    .mode-item.active{
+      background:var(--deep-blue);
+      color:#fff;
+    }
+
+    .doc-icon{
+      width:58px;
+      height:42px;
+      border:3px solid currentColor;
+      border-radius:4px;
+      position:relative;
+      flex:0 0 auto;
+    }
+
+    .doc-icon::after{
+      content:"";
+      position:absolute;
+      width:16px;
+      height:12px;
+      border:3px solid currentColor;
+      border-radius:3px;
+      right:-10px;
+      bottom:-8px;
+      background:#fff;
+    }
+
+    .mode-preview-wrap{
+      display:flex;
+      flex-direction:column;
+      gap:20px;
+      align-items:center;
+      padding-top:4px;
+    }
+
+    .mode-desc{
+      font-size:1.65rem;
+      color:#4b6585;
+      font-weight:800;
+    }
+
+    .preview-area{
+      width:100%;
+      min-height:300px;
+      border:2px solid #d9e2ed;
+      border-radius:8px;
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .paper-preview{
+      width:250px;
+      height:176px;
+      background:#fff;
+      border:2px solid #d2dce9;
+      border-radius:6px;
+      box-shadow:0 10px 18px rgba(0,0,0,.08);
+      position:relative;
+    }
+
+    .paper-preview::before{
+      content:"";
+      position:absolute;
+      width:34px;
+      height:34px;
+      border-radius:50%;
+      background:#d4dbe5;
+      left:18px;
+      top:22px;
+    }
+
+    .paper-preview::after{
+      content:"";
+      position:absolute;
+      width:82px;
+      height:48px;
+      right:18px;
+      top:24px;
+      background:
+        linear-gradient(#b6c5d8 0 0) top/100% 8px no-repeat,
+        linear-gradient(#b6c5d8 0 0) center/100% 8px no-repeat,
+        linear-gradient(#b6c5d8 0 0) bottom/72% 8px no-repeat;
+    }
+
+    .preview-note{
+      text-align:center;
+      color:#4f6784;
+      font-size:1.35rem;
+      font-weight:800;
+    }
+
+    /* =========================================================
+       第四頁：藍色設定頁
+       說明：底部三格改成無藍底；預覽/啟動移到右上
+    ========================================================= */
+    .blue-setting-page{
+      min-height:560px;
+      background:linear-gradient(180deg, #20b8ff 0%, #1498f3 100%);
+      position:relative;
+      border:1px solid #b9daf3;
+      overflow:hidden;
+      padding:20px 20px 110px;
+    }
+
+    .blue-setting-page::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:
+        radial-gradient(circle at 18% 20%, rgba(255,255,255,.12), transparent 22%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,.08), transparent 20%);
+      pointer-events:none;
+    }
+
+    .setting-top{
+      display:grid;
+      grid-template-columns:110px 1fr 150px;
+      align-items:start;
+      gap:16px;
+      position:relative;
+      z-index:1;
+    }
+
+    /* 左上不再出現下層返回 */
+    .setting-top-left-spacer{
+      width:110px;
+      height:66px;
+    }
+
+    .setting-center-title{
+      text-align:center;
+      padding-top:18px;
+      color:#fff;
+    }
+
+    .setting-center-title h3{
+      margin:0 0 18px;
+      font-size:2.2rem;
+      font-weight:900;
+      letter-spacing:1px;
+    }
+
+    .setting-center-title p{
+      margin:0;
+      font-size:1.45rem;
+      font-weight:700;
+      line-height:1.9;
+      white-space:pre-line;
+    }
+
+    .setting-top-right{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .right-btn-top{
+      width:150px;
+      height:68px;
+      border:none;
+      border-radius:4px;
+      font-size:1.2rem;
+      font-weight:900;
+      font-family:inherit;
+      cursor:pointer;
+      color:#fff;
+      background:rgba(255,255,255,.08);
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.22);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+    }
+
+    .slider-block{
+      position:relative;
+      z-index:1;
+      width:min(520px, 88%);
+      margin:52px auto 0;
+      text-align:center;
+    }
+
+    .slider-title{
+      font-size:1.6rem;
+      font-weight:900;
+      margin-bottom:18px;
+      color:#fff;
+    }
+
+    .slider-wrap{
+      position:relative;
+      width:100%;
+      margin:0 auto;
+    }
+
+    .fake-line{
+      position:absolute;
+      left:0;
+      right:0;
+      top:50%;
+      transform:translateY(-50%);
+      height:8px;
+      background:rgba(46,95,150,.5);
+      border-radius:999px;
+    }
+
+    input[type="range"]{
+      width:100%;
+      appearance:none;
+      background:transparent;
+      position:relative;
+      z-index:2;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track{
+      height:8px;
+      background:transparent;
+    }
+
+    input[type="range"]::-webkit-slider-thumb{
+      appearance:none;
+      width:56px;
+      height:56px;
+      border-radius:6px;
+      background:#2aa8ff;
+      border:2px solid rgba(0,0,0,.18);
+      margin-top:-24px;
+      box-shadow:0 8px 14px rgba(0,0,0,.15);
+    }
+
+    input[type="range"]::-moz-range-track{
+      height:8px;
+      background:transparent;
+    }
+
+    input[type="range"]::-moz-range-thumb{
+      width:56px;
+      height:56px;
+      border-radius:6px;
+      background:#2aa8ff;
+      border:2px solid rgba(0,0,0,.18);
+      box-shadow:0 8px 14px rgba(0,0,0,.15);
+    }
+
+    .density-text{
+      margin-top:16px;
+      text-align:center;
+      font-size:2.7rem;
+      font-weight:900;
+      color:#ffe3a1;
+      text-shadow:0 2px 8px rgba(0,0,0,.18);
+      position:relative;
+      z-index:1;
+    }
+
+    .bottom-menu-row{
+      position:absolute;
+      left:20px;
+      right:20px;
+      bottom:18px;
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:14px;
+      z-index:2;
+      align-items:end;
+    }
+
+    /* 這三格不要藍底，只保留外框與文字 */
+    .setting-menu-btn{
+      min-height:76px;
+      border:none;
+      border-radius:12px;
+      background:transparent;
+      color:#fff;
+      font-size:1.15rem;
+      font-weight:900;
+      font-family:inherit;
+      cursor:pointer;
+      display:grid;
+      grid-template-columns:36px 1fr auto;
+      align-items:center;
+      gap:12px;
+      padding:12px 16px;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.25);
+      text-align:left;
+    }
+
+    .setting-menu-btn i{
+      font-size:1.45rem;
+      text-align:center;
+    }
+
+    .setting-menu-label{
+      line-height:1.5;
+    }
+
+    .setting-menu-value{
+      font-size:1.1rem;
+      color:#eef9ff;
+      opacity:.98;
+      white-space:nowrap;
+    }
+
+    /* =========================================================
+       複印模式 / 色彩模式彈出選單
+       說明：模擬實機的小選單
+    ========================================================= */
+    .popup-menu{
+      position:absolute;
+      width:180px;
+      background:#fff;
+      border:4px solid #b8d0ea;
+      border-radius:6px;
+      box-shadow:0 18px 28px rgba(0,0,0,.18);
+      overflow:hidden;
+      display:none;
+      z-index:20;
+    }
+
+    .popup-menu.show{
+      display:block;
+    }
+
+    .popup-item{
+      width:100%;
+      min-height:62px;
+      border:none;
+      border-bottom:1px solid #dce6f0;
+      background:#fff;
+      color:#35547a;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:0 12px;
+      font-size:1.2rem;
+      font-weight:900;
+      font-family:inherit;
+      cursor:pointer;
+      text-align:left;
+    }
+
+    .popup-item:last-child{
+      border-bottom:none;
+    }
+
+    .popup-item.active{
+      background:#1f4ca3;
+      color:#fff;
+    }
+
+    .popup-item i{
+      width:24px;
+      text-align:center;
+    }
+
+    /* =========================================================
+       第五頁：份數頁
+    ========================================================= */
+    .copies-page{
+      max-width:720px;
+      margin:0 auto;
+      padding-top:10px;
+    }
+
+    .copies-title{
+      text-align:center;
+      font-size:2.4rem;
+      color:#516985;
+      font-weight:900;
+      margin:6px 0 10px;
+    }
+
+    .copies-range{
+      text-align:center;
+      color:#7588a0;
+      font-size:1.05rem;
+      font-weight:800;
+      margin-bottom:14px;
+    }
+
+    .copies-row{
+      display:grid;
+      grid-template-columns:1fr 92px 92px;
+      gap:10px;
+      max-width:460px;
+      margin:0 auto 18px;
+    }
+
+    .copies-display{
+      height:72px;
+      border:2px solid #d4deeb;
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:3rem;
+      font-weight:900;
+      color:#24508d;
+    }
+
+    .mini-op{
+      border:none;
+      background:#fff;
+      color:#24508d;
+      font-size:2.6rem;
+      font-weight:900;
+      box-shadow:inset 0 0 0 2px #d4deeb;
+      cursor:pointer;
+      font-family:inherit;
+    }
+
+    .keypad{
+      width:min(420px, 100%);
+      margin:0 auto 18px;
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      border:1px solid #d7e1ec;
+    }
+
+    .key{
+      min-height:82px;
+      border:none;
+      border-right:1px solid #d7e1ec;
+      border-bottom:1px solid #d7e1ec;
+      background:#fff;
+      color:#4d6481;
+      font-size:2.2rem;
+      font-weight:900;
+      cursor:pointer;
+      font-family:inherit;
+    }
+
+    .key:nth-child(3n){ border-right:none; }
+
+    .copies-help{
+      text-align:center;
+      color:#5f738b;
+      font-size:1.15rem;
+      font-weight:800;
+      line-height:1.8;
+    }
+
+    .copies-bottom{
+      margin-top:16px;
+      text-align:center;
+    }
+
+    .copies-confirm{
+      min-width:150px;
+      height:56px;
+      border:none;
+      border-radius:10px;
+      background:linear-gradient(135deg, #1fa5ff, #2a7bff);
+      color:#fff;
+      font-size:1.15rem;
+      font-weight:900;
+      cursor:pointer;
+      font-family:inherit;
+      box-shadow:0 10px 18px rgba(31,165,255,.22);
+    }
+
+    /* =========================================================
+       第六頁：翻面頁
+    ========================================================= */
+    .flip-page{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:560px;
+      padding-top:8px;
+    }
+
+    .flip-machine-page{
+      width:min(900px, 100%);
+      border:2px solid #d9e2ed;
+      background:#f7f7f8;
+      padding:18px;
+      border-radius:8px;
+      box-shadow:0 10px 24px rgba(0,0,0,.08);
+    }
+
+    .flip-banner{
+      background:#6d6d6d;
+      color:#fff;
+      font-size:1.55rem;
+      font-weight:900;
+      line-height:1.7;
+      padding:18px 22px;
+      border-radius:4px;
+      margin-bottom:16px;
+      text-align:left;
+    }
+
+    .flip-content{
+      display:grid;
+      grid-template-columns:1fr 220px;
+      gap:18px;
+      align-items:start;
+    }
+
+    .flip-illustration{
+      background:#4e4e52;
+      border-radius:6px;
+      min-height:360px;
+      position:relative;
+      overflow:hidden;
+      padding:18px;
+      color:#fff;
+    }
+
+    .flip-title-top{
+      position:absolute;
+      top:18px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:1.7rem;
+      font-weight:900;
+      letter-spacing:1px;
+      text-align:center;
+      white-space:nowrap;
+    }
+
+    .flip-bottom-text{
+      position:absolute;
+      left:50%;
+      bottom:22px;
+      transform:translateX(-50%);
+      font-size:1.25rem;
+      line-height:1.8;
+      font-weight:800;
+      text-align:center;
+      width:88%;
+    }
+
+    .flip-center-wrap{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%, -50%);
+      width:430px;
+      height:210px;
+    }
+
+    .scan-area{
+      position:absolute;
+      left:40px;
+      top:18px;
+      width:260px;
+      height:150px;
+      background:linear-gradient(135deg, #b8d6ff, #7fbaff);
+      border:6px solid #f4f6fb;
+      border-radius:6px;
+      transform:skew(-12deg);
+      box-shadow:0 12px 18px rgba(0,0,0,.18);
+    }
+
+    .machine-top{
+      position:absolute;
+      left:140px;
+      top:-8px;
+      width:170px;
+      height:84px;
+      background:linear-gradient(180deg, #ffffff 0%, #dfe9f8 100%);
+      border-radius:12px 12px 6px 6px;
+      transform:rotate(-7deg);
+      box-shadow:0 10px 16px rgba(0,0,0,.16);
+    }
+
+    .card-position{
+      position:absolute;
+      left:210px;
+      top:84px;
+      width:145px;
+      height:92px;
+      background:#181818;
+      border:3px solid rgba(255,255,255,.22);
+      border-radius:8px;
+      box-shadow:0 8px 20px rgba(0,0,0,.25);
+    }
+
+    .card-position::before{
+      content:"";
+      position:absolute;
+      left:16px;
+      top:14px;
+      width:52px;
+      height:32px;
+      border-radius:4px;
+      background:#ffffff;
+    }
+
+    .card-position::after{
+      content:"";
+      position:absolute;
+      right:18px;
+      bottom:16px;
+      width:44px;
+      height:30px;
+      background:
+        radial-gradient(circle at left top, #d9e4f2 0 8px, transparent 9px),
+        linear-gradient(#d9e4f2 0 0) top right/26px 5px no-repeat,
+        linear-gradient(#d9e4f2 0 0) center right/26px 5px no-repeat,
+        linear-gradient(#d9e4f2 0 0) bottom right/18px 5px no-repeat;
+    }
+
+    .rotate-arrow{
+      position:absolute;
+      color:#8fd0ff;
+      font-size:3rem;
+      font-weight:900;
+      line-height:1;
+    }
+
+    .arrow-top{
+      left:235px;
+      top:-18px;
+      transform:rotate(-20deg);
+    }
+
+    .arrow-bottom{
+      left:335px;
+      top:84px;
+      transform:rotate(30deg);
+    }
+
+    .flip-buttons{
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+      justify-content:flex-end;
+      padding-top:120px;
+    }
+
+    .side-action{
+      width:100%;
+      height:74px;
+      border:none;
+      border-radius:6px;
+      font-size:1.4rem;
+      font-weight:900;
+      font-family:inherit;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      background:#fff;
+      box-shadow:inset 0 0 0 2px #d3dce8;
+      color:#4b617f;
+    }
+
+    .side-action.cancel{
+      color:#d35c5c;
+    }
+
+    .side-action.start{
+      color:#2f9d57;
+    }
+
+    /* =========================================================
+       完成視窗
+    ========================================================= */
+    .result-modal{
+      position:absolute;
+      inset:0;
+      background:rgba(9,18,30,.62);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      z-index:40;
+    }
+
+    .result-modal.show{
+      display:flex;
+    }
+
+    .result-box{
+      width:min(520px, 100%);
+      background:#fff;
+      border-radius:18px;
+      padding:28px;
+      text-align:center;
+      box-shadow:0 24px 46px rgba(0,0,0,.26);
+    }
+
+    .result-box i{
+      font-size:4.4rem;
+      color:var(--ok);
+      margin-bottom:10px;
+    }
+
+    .result-box h3{
+      margin:0 0 10px;
+      color:#355372;
+      font-size:2rem;
+    }
+
+    .result-box p{
+      margin:0 0 18px;
+      color:#5f738b;
+      font-size:1.2rem;
+      line-height:1.8;
+      font-weight:800;
+      white-space:pre-line;
+    }
+
+    .result-btn{
+      border:none;
+      min-width:140px;
+      height:52px;
+      border-radius:10px;
+      background:#1b72d1;
+      color:#fff;
+      font-size:1.1rem;
+      font-weight:900;
+      cursor:pointer;
+      font-family:inherit;
+    }
+
+    /* =========================================================
+       實體按鍵
+    ========================================================= */
+    .hardware-buttons{
+      position:absolute;
+      right:18px;
+      bottom:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      z-index:5;
+    }
+
+    .hardware-btn{
+      width:54px;
+      height:54px;
+      border-radius:10px;
+      background:linear-gradient(180deg, #2d3440 0%, #171d26 100%);
+      border:1px solid rgba(255,255,255,.08);
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+      font-size:1.4rem;
+    }
+
+    .hardware-mark{
+      position:absolute;
+      left:16px;
+      bottom:18px;
+      color:#d88eff;
+      font-size:1.3rem;
+      opacity:.85;
+    }
+
+    /* =========================================================
+       響應式
+    ========================================================= */
+    @media (max-width: 900px){
+      .topbar{
+        grid-template-columns:110px 1fr 110px;
+      }
+      .page-title{
+        font-size:1.45rem;
+      }
+      .nav-btn{
+        font-size:1rem;
+        height:48px;
+      }
+      .menu-grid,
+      .mode-wrap,
+      .flip-content{
+        grid-template-columns:1fr;
+      }
+      .setting-top{
+        grid-template-columns:1fr;
+      }
+      .setting-top-left-spacer{
+        display:none;
+      }
+      .setting-top-right{
+        flex-direction:row;
+        justify-content:flex-end;
+      }
+      .right-btn-top{
+        width:130px;
+      }
+      .bottom-menu-row{
+        grid-template-columns:1fr;
+      }
+      .flip-buttons{
+        padding-top:0;
+        flex-direction:row;
+      }
+    }
+
+    @media (max-width: 640px){
+      body{
+        padding:10px;
+      }
+      .machine{
+        padding:12px 12px 16px;
+        border-radius:18px;
+      }
+      .screen-frame{
+        padding:8px;
+        border-radius:18px;
+      }
+      .screen{
+        min-height:640px;
+      }
+      .topbar{
+        grid-template-columns:88px 1fr 88px;
+        min-height:62px;
+        padding:6px;
+      }
+      .page-title{
+        font-size:1.05rem;
+        letter-spacing:1px;
+      }
+      .nav-btn{
+        font-size:.84rem;
+        gap:3px;
+        height:42px;
+      }
+      .lang-btn{
+        font-size:.95rem;
+        padding:10px 12px;
+      }
+      .content{
+        padding:16px 16px 24px;
+      }
+      .menu-card{
+        min-height:180px;
+      }
+      .menu-card i{
+        font-size:3.4rem;
+      }
+      .menu-card .label{
+        font-size:1.4rem;
+      }
+      .place-center{
+        min-height:540px;
+      }
+      .place-page-title{
+        position:static;
+        margin-bottom:8px;
+        font-size:1.5rem;
+        text-align:right;
+      }
+      .place-text-left{
+        position:static;
+        width:auto;
+        font-size:1.02rem;
+        margin-bottom:12px;
+      }
+      .scanner-group{
+        position:relative;
+        left:auto;
+        top:auto;
+        transform:none;
+        margin:10px auto 0;
+        width:250px;
+        height:190px;
+      }
+      .turn-arrow{
+        left:72px;
+        top:8px;
+        font-size:2.6rem;
+      }
+      .scanner-lid{
+        left:58px;
+        top:18px;
+        width:150px;
+        height:64px;
+      }
+      .scanner-glass{
+        left:24px;
+        top:95px;
+        width:200px;
+        height:76px;
+      }
+      .scanner-card{
+        left:52px;
+        top:105px;
+        width:80px;
+        height:50px;
+      }
+      .scanner-mark{
+        left:128px;
+        top:116px;
+        font-size:1.5rem;
+      }
+      .place-text-bottom{
+        position:static;
+        transform:none;
+        width:auto;
+        font-size:1rem;
+        margin-top:8px;
+      }
+      .section-label,
+      .mode-desc,
+      .preview-note{
+        font-size:1.12rem;
+      }
+      .mode-item{
+        font-size:1.08rem;
+        min-height:72px;
+      }
+      .blue-setting-page{
+        padding-bottom:220px;
+      }
+      .setting-center-title h3{
+        font-size:1.6rem;
+      }
+      .setting-center-title p{
+        font-size:1rem;
+      }
+      .slider-block{
+        width:100%;
+      }
+      .density-text{
+        font-size:2rem;
+      }
+      .setting-top-right{
+        justify-content:flex-start;
+      }
+      .right-btn-top{
+        width:110px;
+        height:54px;
+        font-size:1rem;
+      }
+      .bottom-menu-row{
+        left:16px;
+        right:16px;
+        grid-template-columns:1fr;
+      }
+      .setting-menu-btn{
+        min-height:68px;
+      }
+      .popup-menu{
+        width:160px;
+      }
+      .copies-title{
+        font-size:1.8rem;
+      }
+      .copies-row{
+        grid-template-columns:1fr 70px 70px;
+      }
+      .copies-display{
+        height:58px;
+        font-size:2.2rem;
+      }
+      .mini-op{
+        font-size:1.8rem;
+      }
+      .key{
+        min-height:64px;
+        font-size:1.6rem;
+      }
+      .flip-banner{
+        font-size:1.05rem;
+        padding:12px 14px;
+      }
+      .flip-illustration{
+        min-height:300px;
+      }
+      .flip-title-top{
+        font-size:1.2rem;
+        width:90%;
+        white-space:normal;
+      }
+      .flip-bottom-text{
+        font-size:.98rem;
+      }
+      .flip-center-wrap{
+        width:260px;
+        height:170px;
+      }
+      .scan-area{
+        left:18px;
+        top:28px;
+        width:170px;
+        height:96px;
+      }
+      .machine-top{
+        left:82px;
+        top:8px;
+        width:116px;
+        height:58px;
+      }
+      .card-position{
+        left:132px;
+        top:80px;
+        width:104px;
+        height:68px;
+      }
+      .arrow-top{
+        left:140px;
+        top:0;
+        font-size:2rem;
+      }
+      .arrow-bottom{
+        left:204px;
+        top:78px;
+        font-size:2rem;
+      }
+      .side-action{
+        height:58px;
+        font-size:1.08rem;
+      }
+      .hardware-buttons{
+        right:10px;
+        bottom:10px;
+      }
+      .hardware-btn{
+        width:42px;
+        height:42px;
+        font-size:1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="machine">
+    <div class="top-slot" aria-hidden="true"></div>
+
+    <div class="screen-frame">
+      <div class="screen">
+        <!-- =====================================================
+             上方藍色列
+        ====================================================== -->
+        <div class="topbar">
+          <button class="nav-btn" id="backBtn" onclick="handleTopLeftAction()">
+            <i class="bi bi-chevron-left" id="backIcon"></i>
+            <span id="backLabel">返回</span>
+          </button>
+
+          <div class="page-title" id="pageTitle">複印</div>
+
+          <button class="nav-btn" id="nextBtn" onclick="goNext()">
+            <span>下一頁</span>
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+
+        <div class="lang-row" id="langRow">
+          <button class="lang-btn active">中文</button>
+          <button class="lang-btn">English</button>
+          <button class="lang-btn">日本語</button>
+        </div>
+
+        <div class="content">
+          <!-- ===================================================
+               第 1 頁：首頁
+          ==================================================== -->
+          <section class="page home-page active" data-title="複印">
+            <div class="menu-grid">
+              <button class="menu-card" onclick="startCertificateFlow()">
+                <i class="fa-solid fa-copy"></i>
+                <div class="label">簡易複印</div>
+              </button>
+
+              <button class="menu-card" onclick="startCertificateFlow()">
+                <i class="fa-regular fa-id-card"></i>
+                <div class="label">證件雙面複印</div>
+              </button>
+
+              <button class="menu-card" onclick="showPage(3)">
+                <i class="fa-solid fa-sliders"></i>
+                <div class="label">進階功能</div>
+              </button>
+            </div>
+          </section>
+
+          <!-- ===================================================
+               第 2 頁：放置證件頁
+          ==================================================== -->
+          <section class="page" data-title="證件雙面複印">
+            <div class="place-layout">
+              <div class="place-center">
+                <div class="place-page-title">證件雙面複印</div>
+
+                <div class="place-text-left">
+                  請依下圖所示放置證件，蓋上原稿蓋板後，再按下一頁鍵。
+                </div>
+
+                <div class="scanner-group">
+                  <div class="turn-arrow">↶</div>
+                  <div class="scanner-lid"></div>
+                  <div class="scanner-glass"></div>
+                  <div class="scanner-card"></div>
+                  <div class="scanner-mark">↖</div>
+                </div>
+
+                <div class="place-text-bottom">
+                  請將證件對齊左上標向放置。<br>
+                  ※ 此功能將證件複印至 A4 紙張。
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================================================
+               第 3 頁：複印模式頁
+          ==================================================== -->
+          <section class="page" data-title="證件雙面複印">
+            <div class="section-label">請選擇複印模式</div>
+
+            <div class="mode-wrap">
+              <div class="mode-list">
+                <button class="mode-item active" id="modeSameBtn" onclick="setMode('same')">
+                  <span class="doc-icon"></span>
+                  <span>2面在同一面</span>
+                </button>
+
+                <button class="mode-item" id="modeDoubleBtn" onclick="setMode('double')">
+                  <span class="doc-icon"></span>
+                  <span>2面在正反面</span>
+                </button>
+              </div>
+
+              <div class="mode-preview-wrap">
+                <div class="mode-desc" id="modeDesc">2面在同一面複印費用為一張</div>
+
+                <div class="preview-area">
+                  <div class="paper-preview"></div>
+                </div>
+
+                <div class="preview-note">複印影像</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================================================
+               第 4 頁：藍色設定頁
+          ==================================================== -->
+          <section class="page" data-title="證件雙面複印">
+            <div class="blue-setting-page">
+              <div class="setting-top">
+                <div class="setting-top-left-spacer" aria-hidden="true"></div>
+
+                <div class="setting-center-title">
+                  <h3>證件雙面複印</h3>
+                  <p>請確認設定值，按「啟動」鍵。&#10;或按「預覽」鍵後先確認掃描影像再複印。</p>
+                </div>
+
+                <div class="setting-top-right">
+                  <button class="right-btn-top" onclick="previewJob()">
+                    <i class="bi bi-eye-fill"></i> 預覽
+                  </button>
+                  <button class="right-btn-top" onclick="goNext()">
+                    <i class="bi bi-play-fill"></i> 啟動
+                  </button>
+                </div>
+              </div>
+
+              <div class="slider-block">
+                <div class="slider-title">複印濃淡</div>
+                <div class="slider-wrap">
+                  <div class="fake-line"></div>
+                  <input type="range" id="densityRange" min="-5" max="5" value="0" oninput="updateDensity()">
+                </div>
+                <div class="density-text" id="densityText">0</div>
+              </div>
+
+              <!-- 底部橫向模式列 -->
+              <div class="bottom-menu-row">
+                <button class="setting-menu-btn" id="modeMenuBtn" onclick="toggleModePopup(event)">
+                  <i class="bi bi-file-earmark"></i>
+                  <span class="setting-menu-label">複印模式</span>
+                  <span class="setting-menu-value" id="settingModeValue">同一面</span>
+                </button>
+
+                <button class="setting-menu-btn" id="colorMenuBtn" onclick="toggleColorPopup(event)">
+                  <i class="bi bi-palette-fill"></i>
+                  <span class="setting-menu-label">色彩模式</span>
+                  <span class="setting-menu-value" id="settingColorValue">黑白</span>
+                </button>
+
+                <button class="setting-menu-btn" onclick="showPage(4)">
+                  <i class="bi bi-hash"></i>
+                  <span class="setting-menu-label">份數</span>
+                  <span class="setting-menu-value" id="settingCopiesValue">1</span>
+                </button>
+              </div>
+
+              <!-- 複印模式選單 -->
+              <div class="popup-menu" id="modePopup">
+                <button class="popup-item active" id="popupModeSame" onclick="chooseModeFromPopup('same')">
+                  <i class="bi bi-file-earmark"></i>
+                  <span>同一面</span>
+                </button>
+                <button class="popup-item" id="popupModeDouble" onclick="chooseModeFromPopup('double')">
+                  <i class="bi bi-files"></i>
+                  <span>正反面</span>
+                </button>
+              </div>
+
+              <!-- 色彩模式選單 -->
+              <div class="popup-menu" id="colorPopup">
+                <button class="popup-item active" id="popupColorBW" onclick="chooseColorFromPopup('黑白')">
+                  <i class="bi bi-circle-fill"></i>
+                  <span>黑白</span>
+                </button>
+                <button class="popup-item" id="popupColorColor" onclick="chooseColorFromPopup('彩色')">
+                  <i class="bi bi-palette2"></i>
+                  <span>彩色</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================================================
+               第 5 頁：份數頁
+          ==================================================== -->
+          <section class="page" data-title="份數">
+            <div class="copies-page">
+              <div class="copies-title">份數</div>
+              <div class="copies-range">（1～99）</div>
+
+              <div class="copies-row">
+                <div class="copies-display" id="copiesDisplay">1</div>
+                <button class="mini-op" onclick="adjustCopies(-1)">−</button>
+                <button class="mini-op" onclick="adjustCopies(1)">＋</button>
+              </div>
+
+              <div class="keypad">
+                <button class="key" onclick="appendNumber('1')">1</button>
+                <button class="key" onclick="appendNumber('2')">2</button>
+                <button class="key" onclick="appendNumber('3')">3</button>
+                <button class="key" onclick="appendNumber('4')">4</button>
+                <button class="key" onclick="appendNumber('5')">5</button>
+                <button class="key" onclick="appendNumber('6')">6</button>
+                <button class="key" onclick="appendNumber('7')">7</button>
+                <button class="key" onclick="appendNumber('8')">8</button>
+                <button class="key" onclick="appendNumber('9')">9</button>
+                <button class="key" style="grid-column:1 / span 2;" onclick="appendNumber('0')">0</button>
+                <button class="key" onclick="backspaceCopies()"><i class="bi bi-backspace-fill"></i></button>
+              </div>
+
+              <div class="copies-help">請輸入份數後，按確定回到上一頁。</div>
+
+              <div class="copies-bottom">
+                <button class="copies-confirm" onclick="confirmCopies()">確定</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================================================
+               第 6 頁：翻面頁
+          ==================================================== -->
+          <section class="page" data-title="證件雙面複印">
+            <div class="flip-page">
+              <div class="flip-machine-page">
+                <div class="flip-banner">
+                  請將證件反面向上放置，再按「啟動」鍵。
+                </div>
+
+                <div class="flip-content">
+                  <div class="flip-illustration">
+                    <div class="flip-title-top">ID卡反面放置位置</div>
+
+                    <div class="flip-center-wrap">
+                      <div class="machine-top"></div>
+                      <div class="scan-area"></div>
+                      <div class="card-position"></div>
+                      <div class="rotate-arrow arrow-top">↶</div>
+                      <div class="rotate-arrow arrow-bottom">↷</div>
+                    </div>
+
+                    <div class="flip-bottom-text">
+                      請將證件左右翻轉，放置於相同位置再蓋上原稿蓋。
+                    </div>
+                  </div>
+
+                  <div class="flip-buttons">
+                    <button class="side-action cancel" onclick="goToPage(0)">
+                      <i class="bi bi-x-square-fill"></i> 取消
+                    </button>
+
+                    <button class="side-action start" onclick="finishJob()">
+                      <i class="bi bi-play-btn-fill"></i> 啟動
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================================================
+               完成視窗
+          ==================================================== -->
+          <div class="result-modal" id="resultModal">
+            <div class="result-box">
+              <i class="bi bi-check-circle-fill"></i>
+              <h3>複印完成</h3>
+              <p id="resultText">模擬作業完成，請領取文件。</p>
+              <button class="result-btn" onclick="closeResult()">返回首頁</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 實體按鍵 -->
+        <div class="hardware-buttons" aria-hidden="true">
+          <div class="hardware-btn"><i class="bi bi-power"></i></div>
+          <div class="hardware-btn"><i class="bi bi-house-door"></i></div>
+        </div>
+        <div class="hardware-mark" aria-hidden="true"><i class="bi bi-arrow-counterclockwise"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================
+       狀態資料
+       說明：集中管理頁面、模式、色彩、份數與濃淡
+    ========================================================= */
+    const pages = [...document.querySelectorAll('.page')];
+    const pageTitle = document.getElementById('pageTitle');
+    const backBtn = document.getElementById('backBtn');
+    const backLabel = document.getElementById('backLabel');
+    const backIcon = document.getElementById('backIcon');
+    const nextBtn = document.getElementById('nextBtn');
+    const langRow = document.getElementById('langRow');
+
+    const modePopup = document.getElementById('modePopup');
+    const colorPopup = document.getElementById('colorPopup');
+    const modeMenuBtn = document.getElementById('modeMenuBtn');
+    const colorMenuBtn = document.getElementById('colorMenuBtn');
+
+    let currentPage = 0;
+
+    const state = {
+      mode: 'same',
+      density: 0,
+      color: '黑白',
+      copies: 1
+    };
+
+    /* =========================================================
+       頁面切換
+       說明：第 2 頁左上角顯示複印選單，其餘頁顯示返回
+    ========================================================= */
+    function showPage(index){
+      currentPage = Math.max(0, Math.min(index, pages.length - 1));
+
+      pages.forEach((page, i) => {
+        page.classList.toggle('active', i === currentPage);
+      });
+
+      pageTitle.textContent = pages[currentPage].dataset.title || '複印';
+      nextBtn.disabled = currentPage === pages.length - 1;
+      langRow.style.display = currentPage === 0 ? 'flex' : 'none';
+
+      if(currentPage === 0){
+        backLabel.textContent = '返回';
+        backIcon.className = 'bi bi-chevron-left';
+        backBtn.disabled = true;
+      }else if(currentPage === 1){
+        backLabel.textContent = '複印選單';
+        backIcon.className = 'bi bi-house-door-fill';
+        backBtn.disabled = false;
+      }else{
+        backLabel.textContent = '返回';
+        backIcon.className = 'bi bi-chevron-left';
+        backBtn.disabled = false;
+      }
+
+      closeAllPopups();
+      updateSummary();
+    }
+
+    function handleTopLeftAction(){
+      if(currentPage === 0) return;
+      if(currentPage === 1){
+        goToPage(0);
+      }else{
+        goPrev();
+      }
+    }
+
+    function goPrev(){
+      if(currentPage > 0){
+        showPage(currentPage - 1);
+      }
+    }
+
+    function goNext(){
+      if(currentPage < pages.length - 1){
+        showPage(currentPage + 1);
+      }
+    }
+
+    function goToPage(index){
+      showPage(index);
+    }
+
+    function startCertificateFlow(){
+      showPage(1);
+    }
+
+    /* =========================================================
+       複印模式
+       說明：模式頁與設定頁選單同步
+    ========================================================= */
+    function setMode(mode){
+      state.mode = mode;
+
+      const sameBtn = document.getElementById('modeSameBtn');
+      const doubleBtn = document.getElementById('modeDoubleBtn');
+      const modeDesc = document.getElementById('modeDesc');
+
+      sameBtn.classList.toggle('active', mode === 'same');
+      doubleBtn.classList.toggle('active', mode === 'double');
+
+      document.getElementById('popupModeSame').classList.toggle('active', mode === 'same');
+      document.getElementById('popupModeDouble').classList.toggle('active', mode === 'double');
+
+      if(mode === 'same'){
+        modeDesc.textContent = '2面在同一面複印費用為一張';
+      }else{
+        modeDesc.textContent = '2面在正反面複印費用為兩張';
+      }
+
+      updateSummary();
+    }
+
+    function toggleModePopup(event){
+      event.stopPropagation();
+      closePopup(colorPopup);
+      positionPopup(modePopup, modeMenuBtn);
+      modePopup.classList.toggle('show');
+    }
+
+    function chooseModeFromPopup(mode){
+      setMode(mode);
+      closePopup(modePopup);
+    }
+
+    /* =========================================================
+       色彩模式
+       說明：設定頁下方彈出黑白 / 彩色小選單
+    ========================================================= */
+    function setColorMode(mode){
+      state.color = mode;
+
+      document.getElementById('popupColorBW').classList.toggle('active', mode === '黑白');
+      document.getElementById('popupColorColor').classList.toggle('active', mode === '彩色');
+
+      updateSummary();
+    }
+
+    function toggleColorPopup(event){
+      event.stopPropagation();
+      closePopup(modePopup);
+      positionPopup(colorPopup, colorMenuBtn);
+      colorPopup.classList.toggle('show');
+    }
+
+    function chooseColorFromPopup(mode){
+      setColorMode(mode);
+      closePopup(colorPopup);
+    }
+
+    /* =========================================================
+       Popup 位置控制
+       說明：讓小選單出現在對應按鈕上方
+    ========================================================= */
+    function positionPopup(popup, button){
+      const activePage = document.querySelector('.page.active');
+      const pageRect = activePage.getBoundingClientRect();
+      const btnRect = button.getBoundingClientRect();
+
+      popup.style.left = `${btnRect.left - pageRect.left}px`;
+      popup.style.top = `${btnRect.top - pageRect.top - 150}px`;
+    }
+
+    function closePopup(popup){
+      popup.classList.remove('show');
+    }
+
+    function closeAllPopups(){
+      modePopup.classList.remove('show');
+      colorPopup.classList.remove('show');
+    }
+
+    /* =========================================================
+       份數控制
+       說明：保留原本數字鍵盤頁
+    ========================================================= */
+    function normalizeCopies(value){
+      let n = parseInt(value, 10);
+      if(Number.isNaN(n) || n < 1) n = 1;
+      if(n > 99) n = 99;
+      state.copies = n;
+      document.getElementById('copiesDisplay').textContent = n;
+      updateSummary();
+    }
+
+    function adjustCopies(delta){
+      normalizeCopies(state.copies + delta);
+    }
+
+    function appendNumber(num){
+      let current = String(document.getElementById('copiesDisplay').textContent).trim();
+
+      if(current === '1' && num !== '0'){
+        current = '';
+      }
+
+      let next = (current + num).replace(/^0+/, '');
+      if(next === '') next = '0';
+
+      normalizeCopies(next);
+    }
+
+    function backspaceCopies(){
+      let current = String(document.getElementById('copiesDisplay').textContent).trim();
+      current = current.slice(0, -1);
+      if(current === '') current = '1';
+      normalizeCopies(current);
+    }
+
+    function confirmCopies(){
+      showPage(3);
+    }
+
+    /* =========================================================
+       複印濃淡
+       說明：滑桿同步顯示當前數值
+    ========================================================= */
+    function updateDensity(){
+      const val = Number(document.getElementById('densityRange').value);
+      state.density = val;
+
+      let text = '0';
+      if(val > 0) text = `+${val}`;
+      if(val < 0) text = `${val}`;
+
+      document.getElementById('densityText').textContent = text;
+      updateSummary();
+    }
+
+    /* =========================================================
+       資訊同步
+       說明：設定頁底部三格同步顯示目前值
+    ========================================================= */
+    function updateSummary(){
+      const modeText = state.mode === 'same' ? '同一面' : '正反面';
+
+      const settingModeValue = document.getElementById('settingModeValue');
+      const settingColorValue = document.getElementById('settingColorValue');
+      const settingCopiesValue = document.getElementById('settingCopiesValue');
+      const copiesDisplay = document.getElementById('copiesDisplay');
+
+      if(settingModeValue) settingModeValue.textContent = modeText;
+      if(settingColorValue) settingColorValue.textContent = state.color;
+      if(settingCopiesValue) settingCopiesValue.textContent = state.copies;
+      if(copiesDisplay) copiesDisplay.textContent = state.copies;
+    }
+
+    /* =========================================================
+       預覽與完成
+       說明：預覽僅顯示目前設定，最後一頁啟動後顯示完成視窗
+    ========================================================= */
+    function previewJob(){
+      alert(
+        `預覽完成\n\n` +
+        `複印模式：${state.mode === 'same' ? '同一面' : '正反面'}\n` +
+        `色彩模式：${state.color}\n` +
+        `份數：${state.copies}\n` +
+        `複印濃淡：${state.density}`
+      );
+    }
+
+    function finishJob(){
+      const resultText = document.getElementById('resultText');
+      resultText.textContent =
+        `模擬作業完成。\n複印模式：${state.mode === 'same' ? '同一面' : '正反面'}\n色彩模式：${state.color}\n份數：${state.copies}\n複印濃淡：${state.density}`;
+
+      document.getElementById('resultModal').classList.add('show');
+    }
+
+    function closeResult(){
+      document.getElementById('resultModal').classList.remove('show');
+      showPage(0);
+    }
+
+    /* =========================================================
+       點空白處關閉彈出選單
+    ========================================================= */
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.popup-menu') && !e.target.closest('.setting-menu-btn')) {
+        closeAllPopups();
+      }
+    });
+
+    /* =========================================================
+       初始化
+    ========================================================= */
+    showPage(0);
+    updateSummary();
+  </script>
+</body>
+</html>
